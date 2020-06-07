@@ -7,10 +7,20 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import split_folders
 from tensorflow import optimizers
 from tensorflow.keras.optimizers import SGD
+import matplotlib as plt
 
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+
+def plotImages(images_arr):
+    fig, axes = plt.subplots(1, 5, figsize=(20,20))
+    axes = axes.flatten()
+    for img, ax in zip( images_arr, axes):
+        ax.imshow(img)
+        ax.axis('off')
+    plt.tight_layout()
+    plt.show()
 
 #directory with all image
 data_dir = os.path.join(os.getcwd(), 'images')
@@ -20,7 +30,7 @@ subdirs = [x[1] for x in os.walk(data_dir)]
 classes = subdirs[0]
 
 #split data into train/val/test
-split_folders.ratio('images', output = 'split_set', seed = 1337, ratio =(0.8, 0.2, 0))
+split_folders.ratio('images', output = 'split_set', seed = 1337, ratio =(0.6, 0.4, 0))
 
 #split into different train/val/test directories
 data_dir = os.path.join(os.getcwd(), 'split_set')
@@ -42,7 +52,7 @@ print(total_val)
 
 #training variables
 batch_size = 1
-epochs = 10
+epochs = 1
 IMG_HEIGHT = 150
 IMG_WIDTH = 150
 
@@ -51,24 +61,23 @@ train_image_generator = ImageDataGenerator(rescale=1./255, horizontal_flip=True,
 validation_image_generator = ImageDataGenerator(rescale=1./255)
 
 #get images from train and validatino directories and process them
-train_data_gen = train_image_generator.flow_from_directory(batch_size=batch_size, directory=train_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH), class_mode='sparse', color_mode = 'rgb')
-val_data_gen = validation_image_generator.flow_from_directory(batch_size=batch_size, directory=val_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH), class_mode='sparse', color_mode = 'rgb')
+train_data_gen = train_image_generator.flow_from_directory(batch_size=batch_size, directory=train_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH),  color_mode = 'rgb')
+val_data_gen = validation_image_generator.flow_from_directory(batch_size=batch_size, directory=val_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH), color_mode = 'rgb')
+
+#visualize some images
+sample_training_images, _ = next(train_data_gen)
+#plotImages(sample_training_images[:5])
 
 #ML model with multiple layers (change depending on performance)
-model = Sequential([
-    Conv2D(16, 3, padding='same', activation='relu', input_shape=(IMG_HEIGHT, IMG_WIDTH ,3)),
-    MaxPooling2D(),
-    Conv2D(32, 3, padding='same', activation='relu'),
-    MaxPooling2D(),
-    Conv2D(64, 3, padding='same', activation='relu'),
-    MaxPooling2D(),
-    Flatten(),
-    Dense(512, activation='relu'),
-    Dense(5)
-])
+model = Sequential()
+model.add(Flatten()) 
+model.add(Dense(100, activation=tf.keras.layers.LeakyReLU(alpha=0.3))) 
+model.add(Dropout(0.5)) 
+model.add(Dense(50, activation=tf.keras.layers.LeakyReLU(alpha=0.3))) 
+model.add(Dropout(0.3)) 
+model.add(Dense(5, activation= 'softmax'))
 
-loss_fn = tf.keras.losses.SparseCategoricalCrossentropy()
-model.compile(  loss='sparse_categorical_crossentropy',
+model.compile(  loss='categorical_crossentropy',
                 optimizer='adam',
                 metrics=['accuracy'])
 
@@ -80,6 +89,7 @@ history = model.fit(
     validation_data=val_data_gen,
     validation_steps=total_val // batch_size
 )
+
 
 #visualize model data -> loss and accuracy to see over and under fitting
 acc = history.history['accuracy']
