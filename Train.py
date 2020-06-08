@@ -8,7 +8,7 @@ import split_folders
 from tensorflow import optimizers
 from tensorflow.keras.optimizers import SGD
 import matplotlib as plt
-
+import datetime
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,6 +21,7 @@ def plotImages(images_arr):
         ax.axis('off')
     plt.tight_layout()
     plt.show()
+
 
 #directory with all image
 data_dir = os.path.join(os.getcwd(), 'images')
@@ -51,8 +52,8 @@ print(total_train)
 print(total_val)
 
 #training variables
-batch_size = 1
-epochs = 1
+batch_size = 40
+epochs = 50
 IMG_HEIGHT = 150
 IMG_WIDTH = 150
 
@@ -61,8 +62,8 @@ train_image_generator = ImageDataGenerator(rescale=1./255, horizontal_flip=True,
 validation_image_generator = ImageDataGenerator(rescale=1./255)
 
 #get images from train and validatino directories and process them
-train_data_gen = train_image_generator.flow_from_directory(batch_size=batch_size, directory=train_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH),  color_mode = 'rgb')
-val_data_gen = validation_image_generator.flow_from_directory(batch_size=batch_size, directory=val_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH), color_mode = 'rgb')
+train_data_gen = train_image_generator.flow_from_directory(batch_size=batch_size, directory=train_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH), class_mode='sparse', color_mode = 'rgb')
+val_data_gen = validation_image_generator.flow_from_directory(batch_size=batch_size, directory=val_dir, shuffle=True,target_size=(IMG_HEIGHT, IMG_WIDTH), class_mode='sparse', color_mode = 'rgb')
 
 #visualize some images
 sample_training_images, _ = next(train_data_gen)
@@ -72,22 +73,29 @@ sample_training_images, _ = next(train_data_gen)
 model = Sequential()
 model.add(Flatten()) 
 model.add(Dense(100, activation=tf.keras.layers.LeakyReLU(alpha=0.3))) 
-model.add(Dropout(0.5)) 
+#model.add(Dropout(0.5)) 
 model.add(Dense(50, activation=tf.keras.layers.LeakyReLU(alpha=0.3))) 
-model.add(Dropout(0.3)) 
+#model.add(Dropout(0.3))
+model.add(Dense(25, activation=tf.keras.layers.LeakyReLU(alpha=0.3))) 
+#model.add(Dropout(0.1))
 model.add(Dense(5, activation= 'softmax'))
 
-model.compile(  loss='categorical_crossentropy',
+model.compile(  loss='sparse_categorical_crossentropy',
                 optimizer='adam',
                 metrics=['accuracy'])
+
+#save to tensorboard
+log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 #train the model
 history = model.fit(
     train_data_gen,
-    steps_per_epoch=total_train // batch_size,
+    steps_per_epoch= total_train // batch_size,
     epochs=epochs,
     validation_data=val_data_gen,
-    validation_steps=total_val // batch_size
+    validation_steps=total_val // batch_size,
+    callbacks=[tensorboard_callback]
 )
 
 
